@@ -1,0 +1,4 @@
+kl value for gr: 1.223879139288264
+kl value for ri: 1.0158586202483866
+kl value for iz: 0.9174583114688943
+kl value for gz: 0.7065393144197263
