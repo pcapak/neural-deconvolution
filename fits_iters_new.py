@@ -105,7 +105,7 @@ def bin_data(samples, neurons):
         
         # Add the difference 
         diff = np.array(neurons[i, :] - s)[np.newaxis, :]
-        if min_index in diffs:
+        if min_index in diffs.keys():
             diff_array = diffs[min_index]
             #print(diff_array.shape)
             diffs[min_index] = np.vstack((diff_array, diff))
@@ -243,13 +243,11 @@ for it in iters:
     
     # Use the neuron densities as the xamps
     densities = bin_values / np.sum(bin_values)
-    print(densities)
+    #print(densities)
     xamp1 = densities
     xmean = neurons[0:ngauss, :]
     
     neu_sigma = np.zeros(neurons.shape)
-    avg_dx = np.array([np.mean(errors[:, 0]), np.mean(errors[:, 1]), 
-              np.mean(errors[:, 2]), np.mean(errors[:, 3])])
     for i in range(neu_sigma.shape[0]):
         if i in diffs.keys():
             diff = diffs[i]
@@ -258,8 +256,9 @@ for it in iters:
             neu_sigma[i][1] = np.std(diff[:, 1])
             neu_sigma[i][2] = np.std(diff[:, 2])
             neu_sigma[i][3] = np.std(diff[:, 3])
-        else:
-            neu_sigma[i, :] = avg_dx
+#        else:
+#            neu_sigma[i, :] = avg_dx
+#            print(neu_sigma[i])
     neu_sigma = np.square(neu_sigma)
     avg_dx = np.array([np.mean(errors[:, 0]), np.mean(errors[:, 1]), 
               np.mean(errors[:, 2]), np.mean(errors[:, 3])])
@@ -270,21 +269,28 @@ for it in iters:
     #print(np.shape(xcovar))
     #xcovar = np.cov(neurons.T)
     for i in range(ngauss):
-        sub = neu_sigma[i, :] - avg_dx
-        all_pos = True
-        for j in sub:
-            if j <= 0:
-                all_pos = False
-        if all_pos == True:
-            xcovar[i][0][0] = sub[0]
-            xcovar[i][1][1] = sub[1]
-            xcovar[i][2][2] = sub[2]
-            xcovar[i][3][3] = sub[3]
+        zeroes = all(elem == 0 for elem in neu_sigma[i, :])
+        if zeroes == True:
+            xcovar[i][0][0] = avg_dx[0] / 4
+            xcovar[i][1][1] = avg_dx[1] / 4
+            xcovar[i][2][2] = avg_dx[2] / 4
+            xcovar[i][3][3] = avg_dx[3] / 4
         else:
-            xcovar[i][0][0] = neu_sigma[i, 0] / 4
-            xcovar[i][1][1] = neu_sigma[i, 1] / 4
-            xcovar[i][2][2] = neu_sigma[i, 2] / 4
-            xcovar[i][3][3] = neu_sigma[i, 3] / 4
+            sub = neu_sigma[i, :] - avg_dx
+            all_pos = True
+            for j in sub:
+                if j < 0:
+                    all_pos = False
+            if all_pos == True:
+                xcovar[i][0][0] = sub[0]
+                xcovar[i][1][1] = sub[1]
+                xcovar[i][2][2] = sub[2]
+                xcovar[i][3][3] = sub[3]
+            else:
+                xcovar[i][0][0] = neu_sigma[i, 0] / 4
+                xcovar[i][1][1] = neu_sigma[i, 1] / 4
+                xcovar[i][2][2] = neu_sigma[i, 2] / 4
+                xcovar[i][3][3] = neu_sigma[i, 3] / 4
     print(xcovar)
     t0 = time.time()
     l = extreme_deconvolution(ydata,ycovar,xamp1,xmean,xcovar,weight=weights,maxiter=it)
@@ -308,7 +314,7 @@ for it in iters:
     image_iz = create_contours(np.array([samples[:, 2], samples[:, 3]]).T, pixel_num)
     image_gz = create_contours(np.array([samples[:, 0], samples[:, 3]]).T, pixel_num)
     #print(np.sum(image_gr))
-    fits.writeto('gr_iter=' + str(it) + '.fits',image_gr,clobber=True)
-    fits.writeto('ri_iter=' + str(it) + '.fits',image_ri,clobber=True)
-    fits.writeto('iz_iter=' + str(it) + '.fits',image_iz,clobber=True)
-    fits.writeto('gz_iter=' + str(it) + '.fits',image_gz,clobber=True)
+    fits.writeto('gr_iter=' + str(it) + '.fits',image_gr,overwrite=True)
+    fits.writeto('ri_iter=' + str(it) + '.fits',image_ri,overwrite=True)
+    fits.writeto('iz_iter=' + str(it) + '.fits',image_iz,overwrite=True)
+    fits.writeto('gz_iter=' + str(it) + '.fits',image_gz,overwrite=True)
