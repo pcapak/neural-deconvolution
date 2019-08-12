@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug  8 15:52:13 2019
+Created on Mon Aug 12 08:42:01 2019
 
 @author: MeganT
 """
@@ -24,7 +24,7 @@ with fits.open(os.getcwd()+'/simulated_buzzard_data.fits') as hdul:
     cols = hdul[1].columns
 #    print(first_two_rows)
 
-os.chdir(os.getcwd()+"/xdc_iter_new")
+os.chdir(os.getcwd()+"/xdc_iter_fixed2")
 num_cols = 4
 num_rows = data.field(0).shape[1]
 ndata = np.zeros((num_rows, num_cols))
@@ -216,8 +216,10 @@ bin_values, indexes, diffs = bin_data(ydata,neurons)
 pixel_num = 301
 
 iters = [1, 10]
-times = {}
-log_like = {}
+times1 = {}
+log_like1 = {}
+times2 = {}
+log_like2 = {}
 # Run extreme deconvolution for certain max iterations
 for it in iters:
     #print(data.shape)
@@ -250,9 +252,7 @@ for it in iters:
     
     neu_sigma = np.zeros(neurons.shape)
     avg_dx = np.array([np.mean(errors[:, 0]), np.mean(errors[:, 1]), 
-          np.mean(errors[:, 2]), np.mean(errors[:, 3])])
-#    avg_dx = np.array([np.mean(errors[:, 0]), np.mean(errors[:, 1]), 
-#              np.mean(errors[:, 2]), np.mean(errors[:, 3])])
+              np.mean(errors[:, 2]), np.mean(errors[:, 3])])
     for i in range(neu_sigma.shape[0]):
         if i in diffs.keys():
             diff = diffs[i]
@@ -261,8 +261,8 @@ for it in iters:
             neu_sigma[i][1] = np.std(diff[:, 1])
             neu_sigma[i][2] = np.std(diff[:, 2])
             neu_sigma[i][3] = np.std(diff[:, 3])
-#        else:
-#            neu_sigma[i, :] = avg_dx
+        else:
+            neu_sigma[i, :] = avg_dx
 #            print(neu_sigma[i])
     neu_sigma = np.square(neu_sigma)
     avg_dx = np.array([np.mean(errors[:, 0]), np.mean(errors[:, 1]), 
@@ -299,28 +299,49 @@ for it in iters:
     print(xcovar)
     t0 = time.time()
     l = extreme_deconvolution(ydata,ycovar,xamp1,xmean,xcovar,weight=weights,
-                              maxiter=it)
+                              maxiter=it,fixmean=True)
     t1 = time.time()
     xdc_time = t1 - t0
     print(str(it)+" iteration(s) done")
-    times[it] = xdc_time
-    log_like[it] = l
-    timesfile = open('iters_time', 'wb') 
-    pickle.dump(times, timesfile)                      
+    times1[it] = xdc_time
+    log_like1[it] = l
+    timesfile = open('iters_time1', 'wb') 
+    #r1 stands for round 1
+    pickle.dump(times1, timesfile)                      
     timesfile.close() 
-    llfile = open('iters_ll', 'wb') 
-    pickle.dump(log_like, llfile)                      
+    llfile = open('iters_ll1', 'wb') 
+    pickle.dump(log_like1, llfile)                      
     llfile.close() 
     
-    # create contour plots
-    samples = perform_MCMC(xmean, xcovar, xamp1)
-    #print(samples)
-    image_gr = create_contours(np.array([samples[:, 0], samples[:, 1]]).T, pixel_num)
-    image_ri = create_contours(np.array([samples[:, 1], samples[:, 2]]).T, pixel_num)
-    image_iz = create_contours(np.array([samples[:, 2], samples[:, 3]]).T, pixel_num)
-    image_gz = create_contours(np.array([samples[:, 0], samples[:, 3]]).T, pixel_num)
-    #print(np.sum(image_gr))
-    fits.writeto('gr_iter=' + str(it) + '.fits',image_gr,clobber=True)
-    fits.writeto('ri_iter=' + str(it) + '.fits',image_ri,clobber=True)
-    fits.writeto('iz_iter=' + str(it) + '.fits',image_iz,clobber=True)
-    fits.writeto('gz_iter=' + str(it) + '.fits',image_gz,clobber=True)
+    # Perform XDC again 
+    for it2 in iters:
+        xamp1_copy = xamp1.copy()
+        xmean_copy = xmean.copy()
+        xcovar_copy = xcovar.copy()
+        t0 = time.time()
+        l = extreme_deconvolution(ydata,ycovar,xamp1_copy,xmean_copy,xcovar_copy,weight=weights,
+                              maxiter=it2,fixmean=True)
+        t1 = time.time()
+        xdc_time2 = t1 - t0
+        print("Round 2: " + str(it2)+" iteration(s) done")
+        times2[(it, it2)] = (xdc_time, xdc_time2)
+        log_like2[(it, it2)] = l
+        timesfile = open('iters_time2', 'wb') 
+        pickle.dump(times2, timesfile)                      
+        timesfile.close() 
+        llfile = open('iters_ll2', 'wb') 
+        pickle.dump(log_like2, llfile)                      
+        llfile.close() 
+    
+        # create contour plots
+        samples = perform_MCMC(xmean_copy, xcovar_copy, xamp1_copy)
+        #print(samples)
+        image_gr = create_contours(np.array([samples[:, 0], samples[:, 1]]).T, pixel_num)
+        image_ri = create_contours(np.array([samples[:, 1], samples[:, 2]]).T, pixel_num)
+        image_iz = create_contours(np.array([samples[:, 2], samples[:, 3]]).T, pixel_num)
+        image_gz = create_contours(np.array([samples[:, 0], samples[:, 3]]).T, pixel_num)
+        #print(np.sum(image_gr))
+        fits.writeto('gr_iter=' + str(it) + '_' + str(it2) + '.fits',image_gr,clobber=True)
+        fits.writeto('ri_iter=' + str(it) + '_' + str(it2) + '.fits',image_ri,clobber=True)
+        fits.writeto('iz_iter=' + str(it) + '_' + str(it2) + '.fits',image_iz,clobber=True)
+        fits.writeto('gz_iter=' + str(it) + '_' + str(it2) + '.fits',image_gz,clobber=True)

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug  8 15:52:13 2019
+Created on Mon Aug 12 12:42:43 2019
 
 @author: MeganT
 """
+
 
 from astropy.io import fits
 from extreme_deconvolution import extreme_deconvolution
@@ -24,7 +25,7 @@ with fits.open(os.getcwd()+'/simulated_buzzard_data.fits') as hdul:
     cols = hdul[1].columns
 #    print(first_two_rows)
 
-os.chdir(os.getcwd()+"/xdc_iter_new")
+os.chdir(os.getcwd()+"/xdc_iter_fixed")
 num_cols = 4
 num_rows = data.field(0).shape[1]
 ndata = np.zeros((num_rows, num_cols))
@@ -299,7 +300,7 @@ for it in iters:
     print(xcovar)
     t0 = time.time()
     l = extreme_deconvolution(ydata,ycovar,xamp1,xmean,xcovar,weight=weights,
-                              maxiter=it)
+                              maxiter=it,fixmean=True)
     t1 = time.time()
     xdc_time = t1 - t0
     print(str(it)+" iteration(s) done")
