@@ -29,7 +29,9 @@ num_cols = 4
 num_rows = data.field(0).shape[1]
 ndata = np.zeros((num_rows, num_cols))
 errors = np.zeros((num_rows, num_cols))
+true_data = np.zeros((num_rows, num_cols))
 for i in range(num_cols):
+    true_data[:, i] = data.field(i)
     ndata[:, i] = data.field(i + 4)
     errors[:, i] = data.field(i + 8)
 # Normalize the noisy data and errors by the same value
@@ -38,6 +40,11 @@ for i in range(num_rows):
     ndata[i, :] = ndata[i, :] / total_flux
     errors[i, :] = errors[i, :] / total_flux
 #print(ndata)
+
+# Normalize the true_data
+for i in range(num_rows):
+    total_flux = sum(true_data[i, :])
+    true_data[i, :] = true_data[i, :] / total_flux
 
 # Run GNG
 from neupy import algorithms, utils
@@ -114,31 +121,6 @@ def bin_data(samples, neurons):
             diffs[min_index] = diff
    # print(diffs)
     return (output, indexes, diffs)
-
-
-num_cols = 4
-num_rows = data.field(0).shape[1]
-# Each data point is represented by a row
-
-# We fill ndata with the true values of the flux
-true_data = np.zeros((num_rows, num_cols))
-
-for i in range(num_cols):
-    true_data[:, i] = data.field(i)
-
-# Normalize the true_data
-for i in range(num_rows):
-    total_flux = sum(true_data[i, :])
-    true_data[i, :] = true_data[i, :] / total_flux
-
-# Read in the noisy data and their errors
-ndata = np.zeros((num_rows, num_cols))
-errors = np.zeros((num_rows, num_cols))
-for i in range(num_cols):
-    ndata[:, i] = data.field(i + 4)
-    errors[:, i] = data.field(i + 8)
-#print(ndata)
-
 
 #iters = [1, 10, 100, 1000, 10000]
 
@@ -261,8 +243,8 @@ for it in iters:
             neu_sigma[i][1] = np.std(diff[:, 1])
             neu_sigma[i][2] = np.std(diff[:, 2])
             neu_sigma[i][3] = np.std(diff[:, 3])
-        else:
-            neu_sigma[i, :] = avg_dx
+#        else:
+#            neu_sigma[i, :] = avg_dx
 #            print(neu_sigma[i])
     neu_sigma = np.square(neu_sigma)
     avg_dx = np.array([np.mean(errors[:, 0]), np.mean(errors[:, 1]), 
@@ -274,29 +256,28 @@ for it in iters:
     #print(np.shape(xcovar))
     #xcovar = np.cov(neurons.T)
     for i in range(ngauss):
-#        zeroes = all(elem == 0 for elem in neu_sigma[i, :])
-#        if zeroes == True:
-#            xcovar[i][0][0] = avg_dx[0] / 4
-#            xcovar[i][1][1] = avg_dx[1] / 4
-#            xcovar[i][2][2] = avg_dx[2] / 4
-#            xcovar[i][3][3] = avg_dx[3] / 4
-#        else:
-        sub = neu_sigma[i, :] - avg_dx
-        all_pos = True
-        for j in sub:
-            if j < 0:
-                all_pos = False
-        if all_pos == True:
-            xcovar[i][0][0] = sub[0]
-            xcovar[i][1][1] = sub[1]
-            xcovar[i][2][2] = sub[2]
-            xcovar[i][3][3] = sub[3]
+        zeroes = all(elem == 0 for elem in neu_sigma[i, :])
+        if zeroes == True:
+            xcovar[i][0][0] = avg_dx[0] / 4
+            xcovar[i][1][1] = avg_dx[1] / 4
+            xcovar[i][2][2] = avg_dx[2] / 4
+            xcovar[i][3][3] = avg_dx[3] / 4
         else:
-            xcovar[i][0][0] = neu_sigma[i, 0] / 4
-            xcovar[i][1][1] = neu_sigma[i, 1] / 4
-            xcovar[i][2][2] = neu_sigma[i, 2] / 4
-            xcovar[i][3][3] = neu_sigma[i, 3] / 4
-    print(xcovar)
+            sub = neu_sigma[i, :] - avg_dx
+            all_pos = True
+            for j in sub:
+                if j < 0:
+                    all_pos = False
+            if all_pos == True:
+                xcovar[i][0][0] = sub[0]
+                xcovar[i][1][1] = sub[1]
+                xcovar[i][2][2] = sub[2]
+                xcovar[i][3][3] = sub[3]
+            else:
+                xcovar[i][0][0] = neu_sigma[i, 0] / 4
+                xcovar[i][1][1] = neu_sigma[i, 1] / 4
+                xcovar[i][2][2] = neu_sigma[i, 2] / 4
+                xcovar[i][3][3] = neu_sigma[i, 3] / 4
     t0 = time.time()
     l = extreme_deconvolution(ydata,ycovar,xamp1,xmean,xcovar,weight=weights,
                               maxiter=it,fixmean=True)
